@@ -169,7 +169,7 @@ int main(int argc,char* argv[])
 	 const char *strpath = argv[1];  
 
 	//get the filename:except the path and the extension 
-	char *strfilename = new char[151]();
+	char *strfilename = new char[251]();
         int strpath_size = strlen(strpath);
 	int lastsplit_position = 0;
 	for(int i = strpath_size;i>=0;i--)
@@ -287,99 +287,99 @@ int main(int argc,char* argv[])
 		struct iphdr* ip_header;
         ip_header = (iphdr*)(pkt_data+offset_to_ip);
    
-		if (cursession_num==1)
+		if (cursession_num == 1)
 		{
 			//record the first sip IP direction
 
-			for(int i = 0;i<=3;i++)
+			for (int i = 0; i <= 3; i++)
 			{
-				sip_srcaddr[i] = pkt_data[offset_to_ip+12+i];    
-				sip_desaddr[i] = pkt_data[offset_to_ip+16+i];    
+				sip_srcaddr[i] = pkt_data[offset_to_ip + 12 + i];
+				sip_desaddr[i] = pkt_data[offset_to_ip + 16 + i];
 			}
-		}  
+		}
         
      /*take the part of UDP out , according the protocol=17*/   
-        if (ip_header->protocol == 17)
-        {
-	
-			struct udphdr* udp_header; 
-            udp_header = (udphdr*)(pkt_data + offset_to_ip + ipsize);
-           
-			 uint16_t srcport = htons(udp_header->source_port);
-             uint16_t desport = htons(udp_header->dest_port);
+		if (ip_header->protocol == 17)
+		{
 
-		     if(port_times == 1)
-		     {
-		     	sip_srcport = srcport;
-		    	sip_desport = desport;
-		      }
-	          port_times++;
+			struct udphdr* udp_header;
+			udp_header = (udphdr*)(pkt_data + offset_to_ip + ipsize);
 
-              uint16_t udplen = htons(udp_header->len);
-             // whether RTP stream or not based on the UDP header information£¬¡ê?the source and destination ports are not sip port or the same ports 
-             if(srcport == sip_srcport || desport == sip_desport || srcport == sip_desport||desport == sip_srcport || srcport == desport)
-             {    
-              
-                 iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
-                 continue;   //skip to next data packet
-              }
-             //delete the RTP header based on the size of the RTP header
-              struct rtphdr* rtp_header;
-              rtp_header = (rtphdr*)(pkt_data + offset_to_ip + ipsize + udpsize);
-             
-              payload_type =  rtp_header->pt;    //based on the payload type to decide use which wav head
-               
-              uint16_t tempsequence_number;
-              if (cursession_num >= 5)
-              {
-                 tempsequence_number = htons(rtp_header->sequence_number);    //have been tested:right
-             
-              }
-                  
-                //////////////////////////take out the payload data//////////////////
-               rtp_data = (uint8_t*)rtp_header+rtpsize;
+			uint16_t srcport = htons(udp_header->source_port);
+			uint16_t desport = htons(udp_header->dest_port);
 
-   
-          }
-	      /*take the part of TCP out , according the protocol=6*/
-          else if (ip_header->protocol == 6)          
-          {
-         
-			   struct tcphdr* tcp_header; 
-               tcp_header = (tcphdr*)(pkt_data + offset_to_ip + ipsize);
-           
-			   uint16_t srcport = htons(tcp_header->source_port);
-               uint16_t desport = htons(tcp_header->dest_port);
+			if (port_times == 1)
+			{
+				sip_srcport = srcport;
+				sip_desport = desport;
+			}
+			port_times++;
 
-		       if(port_times == 1)
-		       {
-			      sip_srcport = srcport;
-			      sip_desport = desport;
-		        }
-		        port_times++;
+			uint16_t udplen = htons(udp_header->len);
+			// whether RTP stream or not based on the UDP header information£¬¡ê?the source and destination ports are not sip port or the same ports 
+			if (srcport == sip_srcport || desport == sip_desport || srcport == sip_desport || desport == sip_srcport || srcport == desport)
+			{
 
-                uint16_t tcplen = htons(tcp_header->hdr_len);
-               
-				 //with tcp,the port has three situations:all are not rtp stream
-	           	if(srcport == sip_srcport || desport == sip_desport || srcport == sip_desport||desport == sip_srcport)   //sip port
-                {    
-                  
-                    iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
-                    continue;   //skip to next data packet
-                 }
-	          	else if(srcport == desport)    //UDP hesder port
-                {    
-                  
-                    iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
-                    continue;   //skip to next data packet
-                }
-	          	else    //sip port changed
-	         	{
-	        		
-                    iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
-		         	continue;  
-	           	}
-        }
+				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
+				continue;   //skip to next data packet
+			}
+			//delete the RTP header based on the size of the RTP header
+			struct rtphdr* rtp_header;
+			rtp_header = (rtphdr*)(pkt_data + offset_to_ip + ipsize + udpsize);
+
+			payload_type = rtp_header->pt;    //based on the payload type to decide use which wav head
+
+			uint16_t tempsequence_number;
+			if (cursession_num >= 5)
+			{
+				tempsequence_number = htons(rtp_header->sequence_number);    //have been tested:right
+
+			}
+
+			//////////////////////////take out the payload data//////////////////
+			rtp_data = (uint8_t*)rtp_header + rtpsize;
+
+
+		}
+	    /*take the part of TCP out , according the protocol=6*/
+		else if (ip_header->protocol == 6)
+		{
+
+			struct tcphdr* tcp_header;
+			tcp_header = (tcphdr*)(pkt_data + offset_to_ip + ipsize);
+
+			uint16_t srcport = htons(tcp_header->source_port);
+			uint16_t desport = htons(tcp_header->dest_port);
+
+			if (port_times == 1)
+			{
+				sip_srcport = srcport;
+				sip_desport = desport;
+			}
+			port_times++;
+
+			uint16_t tcplen = htons(tcp_header->hdr_len);
+
+			//with tcp,the port has three situations:all are not rtp stream
+			if (srcport == sip_srcport || desport == sip_desport || srcport == sip_desport || desport == sip_srcport)   //sip port
+			{
+
+				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
+				continue;   //skip to next data packet
+			}
+			else if (srcport == desport)    //UDP hesder port
+			{
+
+				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
+				continue;   //skip to next data packet
+			}
+			else    //sip port changed
+			{
+
+				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
+				continue;
+			}
+		}
 
 		//record the first rtp IP direction
 		uint8_t ip1[4];
@@ -401,7 +401,7 @@ int main(int argc,char* argv[])
         }
        ip_times++;
 	     
-	   if(payload_type!=0 && payload_type!=8 && payload_type!=18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
+	   if(/*payload_type!=0 && payload_type!=8 && */payload_type!=18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
 	   {
 		   iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength; 
 		   continue;
@@ -720,396 +720,396 @@ int main(int argc,char* argv[])
 
 
 	/* codecG729a*/
-	 else if (payload_type == 18)   //codecG729a
-	 {
-	
-	  if (block_count1!=0 && block_count2!=0)
-	   {
-		
-		 uint8_t inputBuffer1[10] = {0};
-		 int16_t outputBuffer1[L_FRAME] ={0};
+	else if (payload_type == 18)   //codecG729a
+	{
 
-	     int framesNbr1 = 0;  
-	   
+		if (block_count1 != 0 && block_count2 != 0)
+		{
 
-         pcmfile1 =  fopen(strpath1,"wb");
-		 if (pcmfile1==NULL)
-		 {
-			 return -1;
-		 }
+			uint8_t inputBuffer1[10] = { 0 };
+			int16_t outputBuffer1[L_FRAME] = { 0 };
 
-         //create the decoder 
-	     bcg729DecoderChannelContextStruct* Decoder1 = NULL;
-	     Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
- 
-		 int framesize1 = 0;
-		 int decodesize1 = 0;
-		 if((payloadlen1-decodesize1)<8)
-		 {
-			 framesize1 = 2;
-		 }
-		 else
-		 {
-			 framesize1 = 10;
-		 }
+			int framesNbr1 = 0;
 
-		 while(memcpy(inputBuffer1,pcmBuffer1+decodesize1,framesize1))
-		 {
-			 
-			framesNbr1++;
-			decodesize1 += framesize1;
-			if((payloadlen1-decodesize1)<8)
-		   {
-			 framesize1 = 2;
-		   }
-		   else
-		   {
-			 framesize1 = 10;
-		   }
 
-		
-		   uint8_t frameErasureFlag1 = 0;
-		   if((uint8_t)inputBuffer1[0] == 0) //frame has been erased
-		   {
-			 frameErasureFlag1 = 1;
-		    } 
-
-		    bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
-
-			fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
-
-			if(decodesize1 >= payloadlen1)
+			pcmfile1 = fopen(strpath1, "wb");
+			if (pcmfile1 == NULL)
 			{
-				break;
+				return -1;
 			}
 
-	      }
+			//create the decoder 
+			bcg729DecoderChannelContextStruct* Decoder1 = NULL;
+			Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
 
-		
-		  //release decoder
-		 closeBcg729DecoderChannel(Decoder1);
-
-		
-	     fclose(pcmfile1);
-	     delete [] pcmBuffer1;
-		
-		 uint8_t inputBuffer2[10] = {0};
-		 int16_t outputBuffer2[L_FRAME] ={0};
-
-	     int framesNbr2= 0; 
-        
-
-		 pcmfile2 = fopen(strpath2,"wb");
-		 if (pcmfile2==NULL)
-		 {
-			 return -1;
-		 }
-
-         /*create the decoder */
-	     bcg729DecoderChannelContextStruct* Decoder2 = NULL;
-	     Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
-
-		 int framesize2 = 0;
-		 int decodesize2 = 0;
-		 if((payloadlen2-decodesize2)<8)
-		 {
-			 framesize2 = 2;
-		 }
-		 else
-		 {
-			 framesize2 = 10;
-		 }
-
-		 while(memcpy(inputBuffer2,pcmBuffer2+decodesize2,framesize2))
-		 { /* input buffer contains the parameters and in [15] the frame erasure flag */
-		
-			 framesNbr2++;
-			 decodesize2 += framesize2;
-			if((payloadlen2-decodesize2)<8)
-		   {
-			 framesize2 = 2;
-		   }
-		   else
-		   {
-			 framesize2 = 10;
-		   }
-
-			uint8_t frameErasureFlag2 = 0;
-		   if((uint8_t)inputBuffer2[0] == 0) //frame has been erased
-		   {
-			 frameErasureFlag2 = 1;
-		    }
-
-		     bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
-			
-
-			/* write the output to the output files (only on first loop of perf measurement)*/
-			 fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
-
-			
-			if(decodesize2 >= payloadlen2)
+			int framesize1 = 0;
+			int decodesize1 = 0;
+			if ((payloadlen1 - decodesize1) < 8)
 			{
-				break;
+				framesize1 = 2;
+			}
+			else
+			{
+				framesize1 = 10;
 			}
 
-	      }
-		  /*release decoder*/
-		 closeBcg729DecoderChannel(Decoder2);
-
-	     fclose(pcmfile2);
-	     delete [] pcmBuffer2;
-
-
-	    /*change the two direction pcm file to the wav file*/
-        pcmfile1 = fopen(strpath1,"rb");
-		if (pcmfile1==NULL)
-		{
-			return -1;
-		}
-		fseek( pcmfile1, 0, SEEK_END);
-        const long pcmfileout1_len = ftell( pcmfile1);
-        fseek( pcmfile1, 0, SEEK_SET);
-        char* tempBuffer1 = (char*)malloc( pcmfileout1_len);    //set buffer  the same with the file
-        fread( (void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
-        fclose( pcmfile1);
-	    pcm2wav(strpath1,tempBuffer1,pcmfileout1_len,1,8000,16000,2,16);
-
-		pcmfile2 = fopen(strpath2,"rb");
-		if (pcmfile2==NULL)
-		{
-			return -1;
-		}
-		fseek( pcmfile2, 0, SEEK_END); 
-        const long pcmfileout2_len = ftell( pcmfile2);
-        fseek( pcmfile2, 0, SEEK_SET);
-        char* tempBuffer2 = (char*)malloc( pcmfileout2_len);    //set buffer  the same with the file
-        fread( (void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
-        fclose( pcmfile2);
-	    pcm2wav(strpath2,tempBuffer2,pcmfileout2_len,1,8000,16000,2,16);
-		  
-	   //add the two direction pcm file together,change it to the wav file
-		int pcmfileoutall_len = 0;
-		if (pcmfileout1_len<=pcmfileout2_len)
-	    {
-
-		  for (int i = 0;i<(pcmfileout2_len-pcmfileout1_len);i++ )
-		  {
-			   tempBuffer2[i] = tempBuffer2[i];
-		  }
-
-		  for (int i =(pcmfileout2_len-pcmfileout1_len);i<=pcmfileout2_len-1;i++ )
-		  {
-			  tempBuffer2[i] = tempBuffer2[i]+ tempBuffer1[i-(pcmfileout2_len-pcmfileout1_len)];
-		  }
-
-
-	       pcmfileoutall_len = pcmfileout2_len;
-		   pcm2wav(strpathall,tempBuffer2,pcmfileoutall_len,1,8000,16000,2,16);   //different parameter affact the audio
-
-	    }
-	    else if (pcmfileout1_len>pcmfileout2_len)
-	   {
-		   for (int i = 0;i<(pcmfileout1_len-pcmfileout2_len);i++ )
-		  {
-			   tempBuffer1[i] = tempBuffer1[i];
-		  }
-			
-		  for (int i =(pcmfileout1_len-pcmfileout2_len);i<=pcmfileout1_len-1;i++ )
-		  {
-			  tempBuffer1[i] = tempBuffer1[i]+ tempBuffer2[i-(pcmfileout1_len-pcmfileout2_len)];
-		  }
-		  pcmfileoutall_len = pcmfileout1_len;
-		  pcm2wav(strpathall,tempBuffer1,pcmfileoutall_len,1,8000,16000,2,16);   //different parameter affact the audio
-	    }
-
-		if (tempBuffer1 !=NULL)
-		{
-	      free(tempBuffer1);  
-
-		  tempBuffer1 =NULL;
-		}
-	
-		if(tempBuffer2 !=NULL)
-		{
-	        free(tempBuffer2);   
-	        tempBuffer2 = NULL;
-		}
-	
-	 }
-
-
-	 else if(block_count1!=0 && block_count2==0)
-	 {
-		 delete [] pcmBuffer2;
-		 uint8_t inputBuffer1[10] = {0};
-		 int16_t outputBuffer1[L_FRAME] ={0};
-
-	     int framesNbr1 = 0;  
-
-		 pcmfile1 = fopen(strpath1,"wb");
-		 if (pcmfile1==NULL)
-		 {
-			 return -1;
-		 }
- 
-         //create the decoder 
-	     bcg729DecoderChannelContextStruct* Decoder1 = NULL;
-	     Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
- 
-		 int framesize1 = 0;
-		 int decodesize1 = 0;
-		 if((payloadlen1-decodesize1)<8)
-		 {
-			 framesize1 = 2;
-		 }
-		 else
-		 {
-			 framesize1 = 10;
-		 }
-
-		 while(memcpy(inputBuffer1,pcmBuffer1+decodesize1,framesize1))
-		 {
-			 
-			framesNbr1++;
-			decodesize1 += framesize1;
-			if((payloadlen1-decodesize1)<8)
-		   {
-			 framesize1 = 2;
-		   }
-		   else
-		   {
-			 framesize1 = 10;
-		   }
-
-		   uint8_t frameErasureFlag1 = 0;
-		   if((uint8_t)inputBuffer1[0] == 0) //frame has been erased
-		   {
-			 frameErasureFlag1 = 1;
-		    } 
-
-		    bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
-
-			// write the output to the output files (only on first loop of per measurement)	
-			fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
-
-			if(decodesize1 >= payloadlen1)
+			while (memcpy(inputBuffer1, pcmBuffer1 + decodesize1, framesize1))
 			{
-				break;
+
+				framesNbr1++;
+				decodesize1 += framesize1;
+				if ((payloadlen1 - decodesize1) < 8)
+				{
+					framesize1 = 2;
+				}
+				else
+				{
+					framesize1 = 10;
+				}
+
+
+				uint8_t frameErasureFlag1 = 0;
+				if ((uint8_t)inputBuffer1[0] == 0) //frame has been erased
+				{
+					frameErasureFlag1 = 1;
+				}
+
+				bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
+
+				fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
+
+				if (decodesize1 >= payloadlen1)
+				{
+					break;
+				}
+
 			}
 
-	      }
-	   
-		  //release decoder
-		 closeBcg729DecoderChannel(Decoder1);
 
-	     fclose(pcmfile1);
-	     delete [] pcmBuffer1;
+			//release decoder
+			closeBcg729DecoderChannel(Decoder1);
 
-		/*change the two direction pcm file to the wav file*/
-        pcmfile1 = fopen(strpath1,"rb");
-		if (pcmfile1==NULL)
-		{
-			return -1;
+
+			fclose(pcmfile1);
+			delete[] pcmBuffer1;
+
+			uint8_t inputBuffer2[10] = { 0 };
+			int16_t outputBuffer2[L_FRAME] = { 0 };
+
+			int framesNbr2 = 0;
+
+
+			pcmfile2 = fopen(strpath2, "wb");
+			if (pcmfile2 == NULL)
+			{
+				return -1;
+			}
+
+			/*create the decoder */
+			bcg729DecoderChannelContextStruct* Decoder2 = NULL;
+			Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
+
+			int framesize2 = 0;
+			int decodesize2 = 0;
+			if ((payloadlen2 - decodesize2) < 8)
+			{
+				framesize2 = 2;
+			}
+			else
+			{
+				framesize2 = 10;
+			}
+
+			while (memcpy(inputBuffer2, pcmBuffer2 + decodesize2, framesize2))
+			{ /* input buffer contains the parameters and in [15] the frame erasure flag */
+
+				framesNbr2++;
+				decodesize2 += framesize2;
+				if ((payloadlen2 - decodesize2) < 8)
+				{
+					framesize2 = 2;
+				}
+				else
+				{
+					framesize2 = 10;
+				}
+
+				uint8_t frameErasureFlag2 = 0;
+				if ((uint8_t)inputBuffer2[0] == 0) //frame has been erased
+				{
+					frameErasureFlag2 = 1;
+				}
+
+				bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
+
+
+				/* write the output to the output files (only on first loop of perf measurement)*/
+				fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
+
+
+				if (decodesize2 >= payloadlen2)
+				{
+					break;
+				}
+
+			}
+			/*release decoder*/
+			closeBcg729DecoderChannel(Decoder2);
+
+			fclose(pcmfile2);
+			delete[] pcmBuffer2;
+
+
+			/*change the two direction pcm file to the wav file*/
+			pcmfile1 = fopen(strpath1, "rb");
+			if (pcmfile1 == NULL)
+			{
+				return -1;
+			}
+			fseek(pcmfile1, 0, SEEK_END);
+			const long pcmfileout1_len = ftell(pcmfile1);
+			fseek(pcmfile1, 0, SEEK_SET);
+			char* tempBuffer1 = (char*)malloc(pcmfileout1_len);    //set buffer  the same with the file
+			fread((void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
+			fclose(pcmfile1);
+			pcm2wav(strpath1, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
+
+			pcmfile2 = fopen(strpath2, "rb");
+			if (pcmfile2 == NULL)
+			{
+				return -1;
+			}
+			fseek(pcmfile2, 0, SEEK_END);
+			const long pcmfileout2_len = ftell(pcmfile2);
+			fseek(pcmfile2, 0, SEEK_SET);
+			char* tempBuffer2 = (char*)malloc(pcmfileout2_len);    //set buffer  the same with the file
+			fread((void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
+			fclose(pcmfile2);
+			pcm2wav(strpath2, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
+
+			//add the two direction pcm file together,change it to the wav file
+			int pcmfileoutall_len = 0;
+			if (pcmfileout1_len <= pcmfileout2_len)
+			{
+
+				for (int i = 0; i < (pcmfileout2_len - pcmfileout1_len); i++)
+				{
+					tempBuffer2[i] = tempBuffer2[i];
+				}
+
+				for (int i = (pcmfileout2_len - pcmfileout1_len); i <= pcmfileout2_len - 1; i++)
+				{
+					tempBuffer2[i] = tempBuffer2[i] + tempBuffer1[i - (pcmfileout2_len - pcmfileout1_len)];
+				}
+
+
+				pcmfileoutall_len = pcmfileout2_len;
+				pcm2wav(strpathall, tempBuffer2, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+
+			}
+			else if (pcmfileout1_len > pcmfileout2_len)
+			{
+				for (int i = 0; i < (pcmfileout1_len - pcmfileout2_len); i++)
+				{
+					tempBuffer1[i] = tempBuffer1[i];
+				}
+
+				for (int i = (pcmfileout1_len - pcmfileout2_len); i <= pcmfileout1_len - 1; i++)
+				{
+					tempBuffer1[i] = tempBuffer1[i] + tempBuffer2[i - (pcmfileout1_len - pcmfileout2_len)];
+				}
+				pcmfileoutall_len = pcmfileout1_len;
+				pcm2wav(strpathall, tempBuffer1, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+			}
+
+			if (tempBuffer1 != NULL)
+			{
+				free(tempBuffer1);
+
+				tempBuffer1 = NULL;
+			}
+
+			if (tempBuffer2 != NULL)
+			{
+				free(tempBuffer2);
+				tempBuffer2 = NULL;
+			}
+
 		}
-		fseek( pcmfile1, 0, SEEK_END);
-        const long pcmfileout1_len = ftell( pcmfile1);
-        fseek( pcmfile1, 0, SEEK_SET);
-        char* tempBuffer1 = (char*)malloc( pcmfileout1_len);    //set buffer  the same with the file
-        fread( (void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
-        fclose( pcmfile1);
-	    pcm2wav(strpath1,tempBuffer1,pcmfileout1_len,1,8000,16000,2,16);
 
-		pcm2wav(strpathall,tempBuffer1,pcmfileout1_len,1,8000,16000,2,16);
-   
 
-	 }
-
-	 else if(block_count1==0 && block_count2!=0)
-	 {
-		 delete [] pcmBuffer1;
-
-		 uint8_t inputBuffer2[10] = {0};
-		 int16_t outputBuffer2[L_FRAME] ={0};
-
-	     int framesNbr2= 0; 
-
-		 pcmfile2 = fopen(strpath2,"wb");
-		 if (pcmfile2==NULL)
-		 {
-			 return -1;
-		 }
-
-         /*create the decoder */
-	     bcg729DecoderChannelContextStruct* Decoder2 = NULL;
-	     Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
-
-		 int framesize2 = 0;
-		 int decodesize2 = 0;
-		 if((payloadlen2-decodesize2)<8)
-		 {
-			 framesize2 = 2;
-		 }
-		 else
-		 {
-			 framesize2 = 10;
-		 }
-
-		 while(memcpy(inputBuffer2,pcmBuffer2+decodesize2,framesize2))
-		 { /* input buffer contains the parameters and in [15] the frame erasure flag */
-		
-			 framesNbr2++;
-			 decodesize2 += framesize2;
-			if((payloadlen2-decodesize2)<8)
-		   {
-			 framesize2 = 2;
-		   }
-		   else
-		   {
-			 framesize2 = 10;
-		   }
-
-			uint8_t frameErasureFlag2 = 0;
-		   if((uint8_t)inputBuffer2[0] == 0) //frame has been erased
-		   {
-			 frameErasureFlag2 = 1;
-		    }
-
-		     bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
-			
-
-			/* write the output to the output files (only on first loop of perf measurement)*/
-			 fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
-			 if(decodesize2 >= payloadlen2)
-			 {
-				 break;
-			 }
-
-	      }
-		  /*release decoder*/
-		 closeBcg729DecoderChannel(Decoder2);
-
-	     fclose(pcmfile2);
-	     delete [] pcmBuffer2;
-
-		pcmfile2 = fopen(strpath2,"rb");
-		if (pcmfile2==NULL)
+		else if (block_count1 != 0 && block_count2 == 0)
 		{
-			return -1;
+			delete[] pcmBuffer2;
+			uint8_t inputBuffer1[10] = { 0 };
+			int16_t outputBuffer1[L_FRAME] = { 0 };
+
+			int framesNbr1 = 0;
+
+			pcmfile1 = fopen(strpath1, "wb");
+			if (pcmfile1 == NULL)
+			{
+				return -1;
+			}
+
+			//create the decoder 
+			bcg729DecoderChannelContextStruct* Decoder1 = NULL;
+			Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
+
+			int framesize1 = 0;
+			int decodesize1 = 0;
+			if ((payloadlen1 - decodesize1) < 8)
+			{
+				framesize1 = 2;
+			}
+			else
+			{
+				framesize1 = 10;
+			}
+
+			while (memcpy(inputBuffer1, pcmBuffer1 + decodesize1, framesize1))
+			{
+
+				framesNbr1++;
+				decodesize1 += framesize1;
+				if ((payloadlen1 - decodesize1) < 8)
+				{
+					framesize1 = 2;
+				}
+				else
+				{
+					framesize1 = 10;
+				}
+
+				uint8_t frameErasureFlag1 = 0;
+				if ((uint8_t)inputBuffer1[0] == 0) //frame has been erased
+				{
+					frameErasureFlag1 = 1;
+				}
+
+				bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
+
+				// write the output to the output files (only on first loop of per measurement)	
+				fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
+
+				if (decodesize1 >= payloadlen1)
+				{
+					break;
+				}
+
+			}
+
+			//release decoder
+			closeBcg729DecoderChannel(Decoder1);
+
+			fclose(pcmfile1);
+			delete[] pcmBuffer1;
+
+			/*change the two direction pcm file to the wav file*/
+			pcmfile1 = fopen(strpath1, "rb");
+			if (pcmfile1 == NULL)
+			{
+				return -1;
+			}
+			fseek(pcmfile1, 0, SEEK_END);
+			const long pcmfileout1_len = ftell(pcmfile1);
+			fseek(pcmfile1, 0, SEEK_SET);
+			char* tempBuffer1 = (char*)malloc(pcmfileout1_len);    //set buffer  the same with the file
+			fread((void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
+			fclose(pcmfile1);
+			pcm2wav(strpath1, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
+
+			pcm2wav(strpathall, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
+
+
 		}
-		fseek( pcmfile2, 0, SEEK_END); 
-        const long pcmfileout2_len = ftell( pcmfile2);
-        fseek( pcmfile2, 0, SEEK_SET);
-        char* tempBuffer2 = (char*)malloc( pcmfileout2_len);    //set buffer  the same with the file
-        fread( (void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
-        fclose( pcmfile2);
-	    pcm2wav(strpath2,tempBuffer2,pcmfileout2_len,1,8000,16000,2,16);
 
-		pcm2wav(strpathall,tempBuffer2,pcmfileout2_len,1,8000,16000,2,16);
+		else if (block_count1 == 0 && block_count2 != 0)
+		{
+			delete[] pcmBuffer1;
 
-	 }
+			uint8_t inputBuffer2[10] = { 0 };
+			int16_t outputBuffer2[L_FRAME] = { 0 };
+
+			int framesNbr2 = 0;
+
+			pcmfile2 = fopen(strpath2, "wb");
+			if (pcmfile2 == NULL)
+			{
+				return -1;
+			}
+
+			/*create the decoder */
+			bcg729DecoderChannelContextStruct* Decoder2 = NULL;
+			Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
+
+			int framesize2 = 0;
+			int decodesize2 = 0;
+			if ((payloadlen2 - decodesize2) < 8)
+			{
+				framesize2 = 2;
+			}
+			else
+			{
+				framesize2 = 10;
+			}
+
+			while (memcpy(inputBuffer2, pcmBuffer2 + decodesize2, framesize2))
+			{ /* input buffer contains the parameters and in [15] the frame erasure flag */
+
+				framesNbr2++;
+				decodesize2 += framesize2;
+				if ((payloadlen2 - decodesize2) < 8)
+				{
+					framesize2 = 2;
+				}
+				else
+				{
+					framesize2 = 10;
+				}
+
+				uint8_t frameErasureFlag2 = 0;
+				if ((uint8_t)inputBuffer2[0] == 0) //frame has been erased
+				{
+					frameErasureFlag2 = 1;
+				}
+
+				bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
 
 
-	} 
+				/* write the output to the output files (only on first loop of perf measurement)*/
+				fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
+				if (decodesize2 >= payloadlen2)
+				{
+					break;
+				}
+
+			}
+			/*release decoder*/
+			closeBcg729DecoderChannel(Decoder2);
+
+			fclose(pcmfile2);
+			delete[] pcmBuffer2;
+
+			pcmfile2 = fopen(strpath2, "rb");
+			if (pcmfile2 == NULL)
+			{
+				return -1;
+			}
+			fseek(pcmfile2, 0, SEEK_END);
+			const long pcmfileout2_len = ftell(pcmfile2);
+			fseek(pcmfile2, 0, SEEK_SET);
+			char* tempBuffer2 = (char*)malloc(pcmfileout2_len);    //set buffer  the same with the file
+			fread((void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
+			fclose(pcmfile2);
+			pcm2wav(strpath2, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
+
+			pcm2wav(strpathall, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
+
+		}
+
+
+	}
 
      return 0;
 }
