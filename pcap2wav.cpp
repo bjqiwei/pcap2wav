@@ -508,7 +508,7 @@ int main(int argc,char* argv[])
 		fclose(pcmfile2);
 
 		//char strpathall[151] = "";
-		sprintf(strpathall,"%s%s_all.wav",finalpath,strfilename);
+		sprintf(strpathall,"%s%s.wav",finalpath,strfilename);
 		strpathall[150] = '\0';
 		//FILE* pcmfileall = fopen(strpathall,"wb");
 		pcmfileall = fopen(strpathall,"wb");
@@ -1107,7 +1107,8 @@ int main(int argc,char* argv[])
 			pcm2wav(strpathall, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
 
 		}
-
+		remove(strpath1);
+		remove(strpath2);
 
 	}
 
