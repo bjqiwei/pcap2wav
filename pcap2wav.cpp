@@ -19,8 +19,21 @@ error:error information and retrun -1
 #include<stdlib.h>
 #include<math.h>
 #include<string>
+
+#ifdef WIN32
+#include <WinSock2.h>
+#define S_ISREG(m) (((m) & 0170000) == (0100000))
+#define S_ISDIR(m) (((m) & 0170000) == (0040000))
+#else
 #include<netinet/in.h>       //linux
-#include<unistd.h>
+#endif
+
+#ifndef WIN32
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
+
 #include<sys/stat.h>
 #include"pcap_header.h"
 #include "pcm2wav.h"
@@ -162,10 +175,15 @@ int main(int argc,char* argv[])
 	for(int i = strpath_size;i>=0;i--)
 	{
         char strpath_letter = strpath[i];
+#ifdef WIN32
+		char split = '\\';
+#else
 		char split = '/';
+#endif
 		if (strpath_letter == split)
 		{
 			lastsplit_position = i;
+			lastsplit_position++;
 			break;
 		}
 	}
@@ -468,7 +486,7 @@ int main(int argc,char* argv[])
 	else
 	{
 		//char strpath1[151] = "";
-		sprintf(strpath1,"%s%s_%d.%d.%d.%d2%d.%d.%d.%d.wav",finalpath,strfilename,(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3],(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3]);
+		sprintf(strpath1,"%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav",finalpath,strfilename,(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3],(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3]);
 		strpath1[150] = '\0';
 		//FILE* pcmfile1 = fopen(strpath1,"wb");
 		pcmfile1 = fopen(strpath1,"wb");
@@ -479,7 +497,7 @@ int main(int argc,char* argv[])
 		fclose(pcmfile1);
 
 		//char strpath2[151] = "";
-		sprintf(strpath2,"%s%s_%d.%d.%d.%d2%d.%d.%d.%d.wav",finalpath,strfilename,(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3],(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3]);
+		sprintf(strpath2,"%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav",finalpath,strfilename,(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3],(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3]);
 		strpath2[150] = '\0';
 		//FILE* pcmfile2 = fopen(strpath2,"wb");
 		pcmfile2 = fopen(strpath2,"wb");
