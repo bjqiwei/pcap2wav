@@ -44,7 +44,7 @@ static struct WAVEDATA /*data*/    //8byte
 	int32_t datasize;     //data size,based on the pcapfile
 }headw;
 
-void pcm2wav(char *file, char *buffer, int32_t size, int16_t channel, int32_t smplrate, int32_t bytescnd,int16_t align, int16_t nbits)
+void pcm2wav(const char *file, const unsigned char *buffer, int32_t size, int16_t channel, int32_t smplrate, int32_t bytescnd,int16_t align, int16_t nbits)
 {
 	FILE *fp;
 	int32_t wsize,sz=0;

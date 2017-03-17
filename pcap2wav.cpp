@@ -19,6 +19,7 @@ error:error information and retrun -1
 #include<stdlib.h>
 #include<math.h>
 #include<string>
+#include <vector>
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -48,172 +49,144 @@ error:error information and retrun -1
 using namespace std;
 
 //function to compare the ip address
-int compareIP(uint8_t* firstIP,uint8_t* secondIP,int index)
+bool compareIP(uint8_t* firstIP,uint8_t* secondIP,int index)
 {
-    for(int i =0;i<=index;i++)
-    {
-        if(firstIP[i] == secondIP[i])
-        {
-           if(i == index)
-            {
-             return 1;
-            }
-           continue;
-        }
-        else
-        {
-            return 0;
-        }
-        
+	for (int i = 0; i < index; i++) {
+		if (firstIP[i] != secondIP[i]) {
+			return false;
+		}
     }
-	return 1;
+	return true;
 }
 
 //g711u_decoder
- int G711_Decode_ulaw(short* pRawData,const unsigned char* pBuffer,int32_t nBufferSize)
+int G711_Decode_ulaw(short* pRawData, const unsigned char* pBuffer, int32_t nBufferSize)
+{
+	for (int i = 0; i < nBufferSize; i++)
 	{
+		pRawData[i] = pBuffer[i];
+		pRawData[i] ^= 0xff;  // u-law has all bits inverted for transmission
 
-	 for(int i=0; i<nBufferSize; i++)   
-     {  
-	  
-      pRawData[i] = pBuffer[i];  
+		int linear = pRawData[i] & 0x0f;
+		linear <<= 3;
+		linear |= 0x84;  // Set MSB (0x80) and a 'half' bit (0x04) to place PCM value in middle of range
 
-	  pRawData[i] ^= 0xff;  // u-law has all bits inverted for transmission
+		uint8_t shift = pRawData[i] >> 4;
+		shift &= 7;
+		linear <<= shift;
 
-	int linear = pRawData[i]&0x0f;
-	linear <<= 3;
-	linear |= 0x84;  // Set MSB (0x80) and a 'half' bit (0x04) to place PCM value in middle of range
+		linear -= 0x84; // Subract uLaw bias
 
-	uint8_t shift = pRawData[i]>>4;
-	shift &= 7;
-	linear <<= shift;
+		if (pRawData[i] & 0x80)
+			pRawData[i] = -linear;
+		else
+			pRawData[i] = linear;
 
-	linear -= 0x84; // Subract uLaw bias
-
-	if(pRawData[i]&0x80)
-		pRawData[i] = -linear;
-	else
-		pRawData[i] = linear;
-	
-     }   
-	
-     return nBufferSize*2;
 	}
+
+	return nBufferSize * 2;
+}
 
  //g711a_decoder
- int G711_Decode_alaw(short* pRawData,const unsigned char* pBuffer,int32_t nBufferSize)
- {
-	
-	for(int i=0; i<nBufferSize; i++)   
-    {  
-
-      pRawData[i] = pBuffer[i];  
-	  pRawData[i] ^= 0x55;  // A-law has alternate bits inverted for transmission
-
-	  uint8_t sign = pRawData[i]&0x80;
-	  int linear = pRawData[i]&0x1f;
-	  linear <<= 4;
-	  linear += 8;  // Add a 'half' bit (0x08) to place PCM value in middle of range
-
-	  pRawData[i] &= 0x7f;
-	  if(pRawData[i]>=0x20)
-	  {
-		linear |= 0x100;  // Put in MSB
-		uint8_t shift = (pRawData[i]>>4)-1;
-		linear <<= shift;
-	   }
-
-	  if(!sign)
-		pRawData[i] = -linear;
-	  else
-		pRawData[i] = linear;
-
-    }   
-
-	return nBufferSize*2; 
- }
-
-
-int main(int argc,char* argv[])
-
+int G711_Decode_alaw(short* pRawData, const unsigned char* pBuffer, int32_t nBufferSize)
 {
 
-      if(argc!=3)
-     {
-       printf("please import the correct source file and destination path!!!\n");
-       return -1;
-     }
+	for (int i = 0; i < nBufferSize; i++)
+	{
 
-     if(access(argv[1],0)!=0 || access(argv[2],0)!=0)
-      {
-        printf("please import the correct source file and destination path!!!\n");
-        return -1;
-       }
+		pRawData[i] = pBuffer[i];
+		pRawData[i] ^= 0x55;  // A-law has alternate bits inverted for transmission
 
-        struct stat info;
-         stat(argv[1],&info);
-         if(S_ISDIR(info.st_mode))
-           {
-             printf("please import the correct source file and destination path!!!\n");
-             return -1;
-            }
-         stat(argv[2],&info);
-         if(!S_ISDIR(info.st_mode))
-           {
-             printf("please import the correct source file and destination path!!!\n");
-             return -1;
-            }  
+		uint8_t sign = pRawData[i] & 0x80;
+		int linear = pRawData[i] & 0x1f;
+		linear <<= 4;
+		linear += 8;  // Add a 'half' bit (0x08) to place PCM value in middle of range
 
-     struct __pkthdr* data;
+		pRawData[i] &= 0x7f;
+		if (pRawData[i] >= 0x20)
+		{
+			linear |= 0x100;  // Put in MSB
+			uint8_t shift = (pRawData[i] >> 4) - 1;
+			linear <<= shift;
+		}
 
-	 const char *strpath = argv[1];  
+		if (!sign)
+			pRawData[i] = -linear;
+		else
+			pRawData[i] = linear;
+
+	}
+
+	return nBufferSize * 2;
+}
+
+void ipparse(int32_t ip, uint8_t * dest)
+{
+	memcpy(dest, &ip, 4);
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc != 3) {
+		printf("please import the correct source file and destination path!!!\n");
+		return -1;
+	}
+
+	if (access(argv[1], 0) != 0 || access(argv[2], 0) != 0) {
+		printf("please import the correct source file and destination path!!!\n");
+		return -1;
+	}
+
+	struct stat info;
+	stat(argv[1], &info);
+	if (S_ISDIR(info.st_mode)) {
+		printf("please import the correct source file and destination path!!!\n");
+		return -1;
+	}
+
+	stat(argv[2], &info);
+	if (!S_ISDIR(info.st_mode)) {
+		printf("please import the correct source file and destination path!!!\n");
+		return -1;
+	}
+
+
+	std::string strpath = argv[1];
 
 	//get the filename:except the path and the extension 
-	char *strfilename = new char[251]();
-        int strpath_size = strlen(strpath);
-	int lastsplit_position = 0;
-	for(int i = strpath_size;i>=0;i--)
-	{
-        char strpath_letter = strpath[i];
+	std::string strfilename;
 #ifdef WIN32
-		char split = '\\';
+	char split = '\\';
 #else
-		char split = '/';
+	char split = '/';
 #endif
-		if (strpath_letter == split)
-		{
-			lastsplit_position = i;
-			lastsplit_position++;
-			break;
-		}
+	strfilename = strpath.substr(strpath.rfind(split) + 1);
+	strfilename = strfilename.substr(0, strfilename.length() - 5);
+
+
+	FILE* pFile = fopen(strpath.c_str(), "rb");
+	if (pFile == NULL) {
+		printf("The pcap file is opened failed!!");
+		return -1;
 	}
-	memcpy(strfilename,(char*)strpath+lastsplit_position,strpath_size-lastsplit_position-5);
 
-	
-    FILE* pFile = fopen(strpath,"rb");
-    if( pFile ==NULL)
-    {
-        printf( "The pcap file is opened failed!!");
-        return -1;
-    }
 
-    fseek( pFile, 0, SEEK_END);
-    const long iFileLen = ftell( pFile);
-    fseek( pFile, 0, SEEK_SET);
-    char* pBuffer = (char*)malloc( iFileLen);    //set buffer  the same with the file
-    fread( (void*)pBuffer, 1, iFileLen, pFile);   //read FILE to buffer
-    fclose( pFile);
-  
-    int32_t iIndex = sizeof(struct __file_header);
+	fseek(pFile, 0, SEEK_END);
+	const long iFileLen = ftell(pFile);
+	fseek(pFile, 0, SEEK_SET);
+	std::vector<char> pcapBuffer(iFileLen, 0);    //set buffer  the same with the file
+	fread(pcapBuffer.data(), 1, iFileLen, pFile);   //read FILE to buffer
+	fclose(pFile);
 
-    struct __file_header* file_header;
-	file_header=(__file_header*)pBuffer;
 
-  //  printf("%d\n",file_header->iLinkType);
-	
-    int offset_to_ip;     //set  offset_to_ip based on linktype
+	struct __file_header* file_header;
+	file_header = (__file_header*)pcapBuffer.data();
 
-    switch (file_header->iLinkType)
+	printf("iLinkType:%d\n", file_header->iLinkType);
+
+	int offset_to_ip;     //set  offset_to_ip based on linktype
+
+	switch (file_header->iLinkType)
 	{
 	case 1:
 		offset_to_ip = 14;
@@ -223,87 +196,71 @@ int main(int argc,char* argv[])
 		break;
 	case 113:
 		offset_to_ip = 16;
-	    break;
+		break;
 	default:
 		printf("Unknown interface type\n");
 		return -1;
 	}
 
 
-    int iNo = 1;
+	int iNo = 1;
 
 	//to keep the sip IP address
 	uint8_t sip_srcaddr[4] = "";
 	uint8_t sip_desaddr[4] = "";
 
-	//to keep the rtp IP address
-    uint8_t srcaddr[4] = "";
-    uint8_t desaddr[4] = "";
-	 
-    int ip_times = 1;
+	uint8_t buffer1_srcaddr[4] = "";
+	uint8_t buffer1_desaddr[4] = "";
+
+	uint8_t buffer2_srcaddr[4] = "";
+	uint8_t buffer2_desaddr[4] = "";
+
 	int port_times = 1;
 
- //to keep the SIP port
+	//to keep the SIP port
 	uint16_t sip_srcport;
 	uint16_t sip_desport;
 
-//    int offset_to_ip=16;     //set  offset_to_ip based on linktype
-    int ipsize = sizeof(struct iphdr);   
-    int udpsize = sizeof(struct udphdr);
-    int rtpsize = sizeof(struct rtphdr);
+	//    int offset_to_ip=16;     //set  offset_to_ip based on linktype
 
-    uint8_t pkt_data1[10240] = "";
-	uint8_t rtp_data1[200] = "";
-	uint8_t* pkt_data = pkt_data1 ;
-	uint8_t* rtp_data  = rtp_data1;
+		//count the num of the session in defined ip address direction
 
-    uint8_t  payload_type = 1;
-	uint8_t final_payloadtype =1;
-    //count the num of the session in defined ip address direction
-  
-    int block_count1 = 0;
-    int block_count2 = 0;
-	int payloadlen1 = 0 ;
-	int payloadlen2 = 0;
+		 //to keep the payload data
+	std::vector<unsigned char> pcmBuffer1;
+	pcmBuffer1.reserve(iFileLen);
+	std::vector<unsigned char> pcmBuffer2;
+	pcmBuffer2.reserve(iFileLen);
 
-	 //to keep the payload data
-    char* pcmBuffer1 = new char[iFileLen]();
-    char* pcmBuffer2 = new char[iFileLen]();
-  
+	uint8_t  payload_type = 1;
 
 	//////////////////deal with the data packet one by one based on adding the size
-    while(iIndex < iFileLen)     
-    {
-    
-        data = (__pkthdr*)(pBuffer + iIndex);
-       
-		iNo++;
-        int cursession_num = iNo-1;
-    
-        int32_t rtpFileLen = sizeof(struct __pkthdr) + data->iPLength;   //the whole size of the data packet
-        //////////////////////////////separate the information of every block from the pcap data packet//////////////////////
-       
-		pkt_data = (uint8_t*)pBuffer + iIndex +sizeof(struct __pkthdr);
-		struct iphdr* ip_header;
-        ip_header = (iphdr*)(pkt_data+offset_to_ip);
-   
-		if (cursession_num == 1)
-		{
-			//record the first sip IP direction
 
-			for (int i = 0; i <= 3; i++)
-			{
-				sip_srcaddr[i] = pkt_data[offset_to_ip + 12 + i];
-				sip_desaddr[i] = pkt_data[offset_to_ip + 16 + i];
-			}
+	int32_t iIndex = sizeof(struct __file_header);
+	while (iIndex < iFileLen)
+	{
+		struct __pkthdr* data = (__pkthdr*)(pcapBuffer.data() + iIndex);
+		iNo++;
+		//int cursession_num = iNo - 1;
+
+		//int32_t rtpFileLen = sizeof(*data) + data->iPLength;   //the whole size of the data packet
+		//////////////////////////////separate the information of every block from the pcap data packet//////////////////////
+
+		//uint8_t* rtp_data = rtp_data1;
+		uint8_t* pkt_data = (uint8_t*)data + sizeof(struct __pkthdr);
+		struct iphdr* ip_header = (iphdr*)(pkt_data + offset_to_ip);
+
+		if (iNo-1 == 1) {
+			//record the first sip IP direction
+			ipparse(ip_header->saddr,sip_srcaddr);
+			ipparse(ip_header->daddr,sip_desaddr);
 		}
-        
-     /*take the part of UDP out , according the protocol=17*/   
+
+#pragma region UDP
+		/*take the part of UDP out , according the protocol=17*/
 		if (ip_header->protocol == 17)
 		{
 
-			struct udphdr* udp_header;
-			udp_header = (udphdr*)(pkt_data + offset_to_ip + ipsize);
+			struct udphdr* udp_header = (udphdr*)((uint8_t*)ip_header + sizeof(struct iphdr));
 
 			uint16_t srcport = htons(udp_header->source_port);
 			uint16_t desport = htons(udp_header->dest_port);
@@ -323,30 +280,15 @@ int main(int argc,char* argv[])
 				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
 				continue;   //skip to next data packet
 			}
-			//delete the RTP header based on the size of the RTP header
-			struct rtphdr* rtp_header;
-			rtp_header = (rtphdr*)(pkt_data + offset_to_ip + ipsize + udpsize);
-
-			payload_type = rtp_header->pt;    //based on the payload type to decide use which wav head
-
-			uint16_t tempsequence_number;
-			if (cursession_num >= 5)
-			{
-				tempsequence_number = htons(rtp_header->sequence_number);    //have been tested:right
-
-			}
-
-			//////////////////////////take out the payload data//////////////////
-			rtp_data = (uint8_t*)rtp_header + rtpsize;
-
 
 		}
-	    /*take the part of TCP out , according the protocol=6*/
+#pragma endregion UDP
+		/*take the part of TCP out , according the protocol=6*/
+#pragma region TCP
 		else if (ip_header->protocol == 6)
 		{
 
-			struct tcphdr* tcp_header;
-			tcp_header = (tcphdr*)(pkt_data + offset_to_ip + ipsize);
+			struct tcphdr* tcp_header = (tcphdr*)((uint8_t*)ip_header + sizeof(struct iphdr));
 
 			uint16_t srcport = htons(tcp_header->source_port);
 			uint16_t desport = htons(tcp_header->dest_port);
@@ -369,749 +311,318 @@ int main(int argc,char* argv[])
 			}
 			else if (srcport == desport)    //UDP hesder port
 			{
-
 				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
 				continue;   //skip to next data packet
 			}
 			else    //sip port changed
 			{
-
 				iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;    //read one whole data packet every time
 				continue;
 			}
 		}
+#pragma endregion TCP
 
-		//record the first rtp IP direction
-		uint8_t ip1[4];
-        uint8_t ip2[4];
-        
-        for(int i = 0;i<=3;i++)
-        {
-         ip1[i] = pkt_data[offset_to_ip+12+i];    
-         ip2[i] = pkt_data[offset_to_ip+16+i];    
-        }
-    /////////record the first ip information ,to distiguish the payload data
-        if (ip_times == 1)
-        {
-            for (int i=0;i<=3;i++)
-            {
-               srcaddr[i] = ip1[i];
-               desaddr[i] = ip2[i];
-            }  
-        }
-       ip_times++;
-	     
-	   if(/*payload_type!=0 && payload_type!=8 && */payload_type!=18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
-	   {
-		   iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength; 
-		   continue;
-	   }
-	   else
-	   {
-		   final_payloadtype = payload_type;
-	   }
+		//to keep the rtp IP address
+		uint8_t srcaddr[4];
+		uint8_t desaddr[4];
+		ipparse(ip_header->saddr, srcaddr);
+		ipparse(ip_header->daddr, desaddr);
 
- ///////////////delete all header information£¬take out of the payload data,basing on the different IP direction to save file: ip12ip2.pcm  ip22ip1.pcm  input.pcm
-        if( compareIP(srcaddr,ip1,3) && compareIP(desaddr,ip2,3))
-        {
-            //when the IP direction is IP12IP2,add the payload data to pcmBuffer1
-           memcpy((pcmBuffer1+payloadlen1),(rtp_data),( data->iPLength - offset_to_ip - ipsize - udpsize -rtpsize));
-           payloadlen1 += (data->iPLength - offset_to_ip - ipsize - udpsize -rtpsize);
-		   block_count1++;            
-        }
-        if(compareIP(desaddr,ip1,3) && compareIP(srcaddr,ip2,3))
-        {
-            //when the IP direction is iP22IP1,add the payload data to pcmBuffer2
-            memcpy((pcmBuffer2+payloadlen2),(rtp_data),( data->iPLength - offset_to_ip - ipsize - udpsize -rtpsize));
-            payloadlen2 += (data->iPLength - offset_to_ip - ipsize - udpsize -rtpsize);
-			block_count2++;
-        }    
-    
-        strcpy((char*)pkt_data,"");
-        strcpy((char*)rtp_data,"");
 
-        //set the begin position of the next data packet
-        iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;
-    }
+		struct udphdr* udp_header = (udphdr*)((uint8_t*)ip_header + sizeof(struct iphdr));
+		//delete the RTP header based on the size of the RTP header
+		struct rtphdr* rtp_header = (rtphdr*)((uint8_t*)udp_header + sizeof(struct udphdr));
 
-	free(pBuffer);
-   
-	const char *finalpath = argv[2];
+		payload_type = rtp_header->pt;    //based on the payload type to decide use which wav head
 
-	char strpath1[151] = "";
-	FILE* pcmfile1;
+		//////////////////////////take out the payload data//////////////////
+		uint8_t* rtp_data = (uint8_t*)rtp_header + sizeof(struct rtphdr);
 
-	char strpath2[151] = "";
-	FILE* pcmfile2;
-
-	char strpathall[151] = "";
-	FILE* pcmfileall;
-
-	if (srcaddr[0]==0 && srcaddr[1]==0 && srcaddr[2]==0 && srcaddr[3]==0 && desaddr[0]==0 && desaddr[1]==0 && desaddr[2]==0 && desaddr[3]==0 )
-	{
-		//char strpath1[151] = "";
-		sprintf(strpath1,"%s%s_%d.%d.%d.%d2%d.%d.%d.%d.wav",finalpath,strfilename,(int)sip_srcaddr[0],(int)sip_srcaddr[1],(int)sip_srcaddr[2],(int)sip_srcaddr[3],(int)sip_desaddr[0],(int)sip_desaddr[1],(int)sip_desaddr[2],(int)sip_desaddr[3]);
-		strpath1[150] = '\0';
-		//FILE* pcmfile1 = fopen(strpath1,"wb");
-		pcmfile1 = fopen(strpath1,"wb");
-		if (pcmfile1==NULL)
+		if (/*payload_type != 0 && payload_type != 8 && */payload_type != 18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
 		{
-			return -1;
+			iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;
+			continue;
 		}
-		fclose(pcmfile1);
 
-		// char strpath2[151] = "";
-		sprintf(strpath2,"%s%s_%d.%d.%d.%d2%d.%d.%d.%d.wav",finalpath,strfilename,(int)sip_desaddr[0],(int)sip_desaddr[1],(int)sip_desaddr[2],(int)sip_desaddr[3],(int)sip_srcaddr[0],(int)sip_srcaddr[1],(int)sip_srcaddr[2],(int)sip_srcaddr[3]);
-		strpath2[150] = '\0';
-		//FILE* pcmfile2 = fopen(strpath2,"wb");
-		pcmfile2 = fopen(strpath2,"wb");
-		if (pcmfile2==NULL)
+		if (buffer1_srcaddr[0] == 0) {
+			memcpy(buffer1_srcaddr,srcaddr,4);
+			memcpy(buffer1_desaddr,desaddr,4);
+			memcpy(buffer2_srcaddr,desaddr,4);
+			memcpy(buffer2_desaddr,srcaddr,4);
+		}
+		///////////////delete all header information£¬take out of the payload data,basing on the different IP direction to save file: ip12ip2.pcm  ip22ip1.pcm  input.pcm
+		uint32_t datasize = data->iPLength - offset_to_ip - sizeof(iphdr) - sizeof(udphdr) - sizeof(rtphdr);
+		if (compareIP(srcaddr, buffer1_srcaddr, 4) && compareIP(desaddr, buffer1_desaddr, 4))
 		{
-			return -1;
-		}
-		fclose(pcmfile2);
+			//when the IP direction is IP12IP2,add the payload data to pcmBuffer1
+			pcmBuffer1.resize(pcmBuffer1.size() + datasize);
+			memcpy(pcmBuffer1.data() + pcmBuffer1.size()-datasize, rtp_data, datasize);
 
-		// char strpathall[151] = "";
-		sprintf(strpathall,"%s%s_all.wav",finalpath,strfilename);
-		strpathall[150] = '\0';
-		//FILE* pcmfileall = fopen(strpathall,"wb");
-		pcmfileall = fopen(strpathall,"wb");
-		if (pcmfileall==NULL)
+		}
+		if (compareIP(srcaddr, buffer2_srcaddr, 4) && compareIP(desaddr, buffer2_desaddr, 4))
 		{
-			return -1;
+			//when the IP direction is iP22IP1,add the payload data to pcmBuffer2
+			pcmBuffer2.resize(pcmBuffer2.size() + datasize);
+			memcpy(pcmBuffer2.data() + pcmBuffer2.size()-datasize, rtp_data, datasize);
 		}
-		fclose(pcmfileall);
 
+		//set the begin position of the next data packet
+		iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;
 	}
-	else
-	{
-		//char strpath1[151] = "";
-		sprintf(strpath1,"%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav",finalpath,strfilename,(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3],(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3]);
-		strpath1[150] = '\0';
-		//FILE* pcmfile1 = fopen(strpath1,"wb");
-		pcmfile1 = fopen(strpath1,"wb");
-		if (pcmfile1==NULL)
-		{
-			return -1;
-		}
-		fclose(pcmfile1);
 
-		//char strpath2[151] = "";
-		sprintf(strpath2,"%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav",finalpath,strfilename,(int)desaddr[0],(int)desaddr[1],(int)desaddr[2],(int)desaddr[3],(int)srcaddr[0],(int)srcaddr[1],(int)srcaddr[2],(int)srcaddr[3]);
-		strpath2[150] = '\0';
-		//FILE* pcmfile2 = fopen(strpath2,"wb");
-		pcmfile2 = fopen(strpath2,"wb");
-		if (pcmfile2==NULL)
-		{
-			return -1;
-		}
-		fclose(pcmfile2);
 
-		//char strpathall[151] = "";
-		sprintf(strpathall,"%s%s.wav",finalpath,strfilename);
-		strpathall[150] = '\0';
-		//FILE* pcmfileall = fopen(strpathall,"wb");
-		pcmfileall = fopen(strpathall,"wb");
-		if (pcmfileall==NULL)
-		{
-			return -1;
-		}
-		fclose(pcmfileall);
+	std::string destpath = argv[2];
 
+	std::string strpath1;
+	std::string strpath2;
+	std::string strpathall;
+
+
+	if (buffer1_srcaddr[0] == 0 && buffer1_srcaddr[1] == 0 && buffer1_srcaddr[2] == 0 && buffer1_srcaddr[3] == 0 
+		&& buffer1_desaddr[0] == 0 && buffer1_desaddr[1] == 0 && buffer1_desaddr[2] == 0 && buffer1_desaddr[3] == 0) {
+		memcpy(buffer1_srcaddr,sip_srcaddr,4);
+		memcpy(buffer1_desaddr,sip_desaddr,4);
 	}
-	delete [] strfilename;
 
+	if (buffer2_srcaddr[0] == 0 && buffer2_srcaddr[1] == 0 && buffer2_srcaddr[2] == 0 && buffer2_srcaddr[3] == 0
+		&& buffer2_desaddr[0] == 0 && buffer2_desaddr[1] == 0 && buffer2_desaddr[2] == 0 && buffer2_desaddr[3] == 0) {
+		memcpy(buffer2_srcaddr, sip_desaddr, 4);
+		memcpy(buffer2_desaddr, sip_srcaddr, 4);
+	}
 
-	if (block_count1==0 && block_count2==0)
-	 {
-           delete [] pcmBuffer1;
-           delete [] pcmBuffer2;	
-		   return 0;
-	  }
-
-	payload_type = final_payloadtype;
-
-	/* codec G711:pcmu*/
-     if(payload_type == 0)      //codec G711:pcmu // add G711 decode
-     {
+	char buffer[256] = "";
+	sprintf(buffer, "%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav", destpath.c_str(), strfilename.c_str(), 
+		(int)buffer1_srcaddr[0], (int)buffer1_srcaddr[1], (int)buffer1_srcaddr[2], (int)buffer1_srcaddr[3],
+		(int)buffer1_desaddr[0], (int)buffer1_desaddr[1], (int)buffer1_desaddr[2], (int)buffer1_desaddr[3]);
+	strpath1 = buffer;
 	
-	      if (block_count1!=0 && block_count2!=0)
-	       {
-              
-	            int nBufferSize1 = payloadlen1;
-	            short* pRawData1 = new short[iFileLen]();
-                int size1 = G711_Decode_ulaw(pRawData1, (unsigned char*)pcmBuffer1, nBufferSize1);  
-                pcm2wav(strpath1,(char*)pRawData1,size1,1,8000,16000,2,16);
-	       
-	           int nBufferSize2 = payloadlen2;
-	           short* pRawData2 = new short[iFileLen](); 
-	        
-               int size2 = G711_Decode_ulaw(pRawData2,(unsigned char*)pcmBuffer2, nBufferSize2);
-               pcm2wav(strpath2,(char*)pRawData2,size2,1,8000,16000,2,16);
- 
-	           int sizeall = 0;
-	           if (nBufferSize1<nBufferSize2)
-	           {
-                   for (int i = 0;i<(nBufferSize2-nBufferSize1);i++ )
-		           {
-			            pRawData2[i] = pRawData2[i];
-		            }
+	sprintf(buffer, "%s%s_%d.%d.%d.%d_2_%d.%d.%d.%d.wav", destpath.c_str(), strfilename.c_str(), 
+		(int)buffer2_srcaddr[0], (int)buffer2_srcaddr[1], (int)buffer2_srcaddr[2], (int)buffer2_srcaddr[3],
+		(int)buffer2_desaddr[0], (int)buffer2_desaddr[1], (int)buffer2_desaddr[2], (int)buffer2_desaddr[3]);
+	strpath2 = buffer;
 
-		            for (int i =(nBufferSize2-nBufferSize1);i<nBufferSize2;i++ )
-		            {
-			           pRawData2[i] = pRawData2[i]+ pRawData1[i-(nBufferSize2-nBufferSize1)];
-		            }
+	
+	sprintf(buffer, "%s%s.wav", destpath.c_str(), strfilename.c_str());
+	strpathall = buffer;
 
-	                sizeall = size2;
-		            pcm2wav(strpathall,(char*)pRawData2,sizeall,1,8000,16000,2,16);   //different parameter affact the audio
+	if (pcmBuffer1.size() == 0 && pcmBuffer2.size() == 0)
+	{
+		return 0;
+	}
 
-	            }
-	            else if (nBufferSize1>=nBufferSize2)
-	            {
-		            for (int i = 0;i<(nBufferSize1-nBufferSize2);i++ )
-		            {
-			           pRawData1[i] = pRawData1[i];
-		            }
-			
-					
-		            for (int i =(nBufferSize1-nBufferSize2);i<nBufferSize1;i++ )     
-		            {
+#pragma  region PCMU
+	/* codec G711:pcmu*/
+	if (payload_type == 0)      //codec G711:pcmu // add G711 decode
+	{
+		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
+		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
+		int size1 = 0;
+		int size2 = 0;
 
-			          pRawData1[i] = pRawData1[i]+ pRawData2[i-(nBufferSize1-nBufferSize2)]; 
-		              
-					}
+		if (pcmBuffer1.size() != 0) {
+			size1 = G711_Decode_ulaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
+			pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);
+		}
 
-		            sizeall = size1;
-		            pcm2wav(strpathall,(char*)pRawData1,sizeall,1,8000,16000,2,16);   //different parameter affact the audio
-	             }
-      
-	            delete [] pRawData1;
-	            delete [] pRawData2;     
-	            delete [] pcmBuffer1;
-                delete [] pcmBuffer2;	
-	         }
+		if (pcmBuffer2.size() != 0) {
+			size2 = G711_Decode_ulaw(pRawData2.data(), pcmBuffer2.data(),pcmBuffer2.size());
+			pcm2wav(strpath2.c_str(), (unsigned char*)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
+		}
 
-		   if(block_count1==0 && block_count2!=0)
-	        {
+		if (pRawData1.size() < pRawData2.size())
+		{
+			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+			{
+				pRawData2[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+			}
 
-	            
-		         int nBufferSize2 = payloadlen2;
-	             short* pRawData2 = new short[iFileLen](); 
-                 int size2 = G711_Decode_ulaw(pRawData2,(unsigned char*)pcmBuffer2, nBufferSize2);
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
 
-                  pcm2wav(strpath2,(char*)pRawData2,size2,1,8000,16000,2,16);
-		          pcm2wav(strpathall,(char*)pRawData2,size2,1,8000,16000,2,16);
-	    
-		          delete [] pcmBuffer1;
-		          delete [] pRawData2;   
-		          delete [] pcmBuffer2;
-		
-	          }
+		}
+		else if (pRawData1.size() >= pRawData2.size())
+		{
+			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+			{
+				pRawData1[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+			}
 
-	         if(block_count1!=0 && block_count2==0)
-	          {
-
-	              
-		           int nBufferSize1 = payloadlen1;
-	               short* pRawData1 = new short[iFileLen](); 
-                   int size1 = G711_Decode_ulaw(pRawData1,(unsigned char*)pcmBuffer1, nBufferSize1);
-
-                   pcm2wav(strpath1,(char*)pRawData1,size1,1,8000,16000,2,16);
-		           pcm2wav(strpathall,(char*)pRawData1,size1,1,8000,16000,2,16);
-	    
-		           delete [] pcmBuffer1;
-		           delete [] pRawData1;   
-		           delete [] pcmBuffer2;	
-	            }
+			pcm2wav(strpathall.c_str(),(unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+		}
 
      }
- 
+#pragma endregion PCMU
+#pragma region PCMA
 	/*  codec G711:pcma*/
-    else if (payload_type == 8)     //codec G711:pcma
-	{      
-	       if (block_count1!=0 && block_count2!=0)
-	       {
-            
-	            int nBufferSize1 = payloadlen1;
-	            short* pRawData1 = new short[iFileLen]();
-                int size1 = G711_Decode_alaw(pRawData1, (unsigned char*)pcmBuffer1, nBufferSize1);  
-                pcm2wav(strpath1,(char*)pRawData1,size1,1,8000,16000,2,16);
-	        
-	           int nBufferSize2 = payloadlen2;
-	           short* pRawData2 = new short[iFileLen](); 
-	        
-               int size2 = G711_Decode_alaw(pRawData2,(unsigned char*)pcmBuffer2, nBufferSize2);
-               pcm2wav(strpath2,(char*)pRawData2,size2,1,8000,16000,2,16);
- 
-	           int sizeall = 0;
-	           if (nBufferSize1<nBufferSize2)
-	           {
-                   for (int i = 0;i<(nBufferSize2-nBufferSize1);i++ )
-		           {
-			            pRawData2[i] = pRawData2[i];
-		            }
+	else if (payload_type == 8)     //codec G711:pcma
+	{
+		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
+		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
+		int size1 = 0;
+		int size2 = 0;
 
-		            for (int i =(nBufferSize2-nBufferSize1);i<nBufferSize2;i++ )
-		            {
-			           pRawData2[i] = pRawData2[i]+ pRawData1[i-(nBufferSize2-nBufferSize1)];
-		            }
+		if (pcmBuffer1.size() != 0) {
+			size1 = G711_Decode_alaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
+			pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);
+		}
 
-	                sizeall = size2;
-		            pcm2wav(strpathall,(char*)pRawData2,sizeall,1,8000,16000,2,16);   //different parameter affact the audio
+		if (pcmBuffer2.size() != 0) {
+			size2 = G711_Decode_alaw(pRawData2.data(), pcmBuffer2.data(), pcmBuffer2.size());
+			pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
+		}
 
-	            }
-	            else if (nBufferSize1>=nBufferSize2)
-	            {
-		            for (int i = 0;i<(nBufferSize1-nBufferSize2);i++ )
-		            {
-			           pRawData1[i] = pRawData1[i];
-		            }
-			
-					
-		            for (int i =(nBufferSize1-nBufferSize2);i<nBufferSize1;i++ )     
-		            {
 
-			          pRawData1[i] = pRawData1[i]+ pRawData2[i-(nBufferSize1-nBufferSize2)];   
-		              
-					}
+		if (pRawData1.size() < pRawData2.size())
+		{
+			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+			{
+				pRawData2[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+			}
 
-		            sizeall = size1;
-		            pcm2wav(strpathall,(char*)pRawData1,sizeall,1,8000,16000,2,16);   //different parameter affact the audio
-	             }
-      
-	            delete [] pRawData1;
-	            delete [] pRawData2;    
-	            delete [] pcmBuffer1;
-                delete [] pcmBuffer2;	
-	         }
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
 
-		   if(block_count1==0 && block_count2!=0)
-	        {
+		}
+		else if (pRawData1.size() >= pRawData2.size())
+		{
+			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+			{
+				pRawData1[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+			}
 
-		         int nBufferSize2 = payloadlen2;
-	             short* pRawData2 = new short[iFileLen](); 
-                 int size2 = G711_Decode_alaw(pRawData2,(unsigned char*)pcmBuffer2, nBufferSize2);
-
-                  pcm2wav(strpath2,(char*)pRawData2,size2,1,8000,16000,2,16);
-		          pcm2wav(strpathall,(char*)pRawData2,size2,1,8000,16000,2,16);
-	    
-		          delete [] pcmBuffer1;
-		          delete [] pRawData2;    
-		          delete [] pcmBuffer2;
-		
-	          }
-
-	         if(block_count1!=0 && block_count2==0)
-	          {
-
-		           int nBufferSize1 = payloadlen1;
-	               short* pRawData1 = new short[iFileLen](); 
-                   int size1 = G711_Decode_alaw(pRawData1,(unsigned char*)pcmBuffer1, nBufferSize1);
-
-                   pcm2wav(strpath1,(char*)pRawData1,size1,1,8000,16000,2,16);
-		           pcm2wav(strpathall,(char*)pRawData1,size1,1,8000,16000,2,16);
-	    
-		           delete [] pcmBuffer1;
-		           delete [] pRawData1;    
-		           delete [] pcmBuffer2;	
-	            }
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+		}
 
 	 }
+#pragma endregion PCMA
 
-
+#pragma region G729A
 	/* codecG729a*/
 	else if (payload_type == 18)   //codecG729a
 	{
 
-		if (block_count1 != 0 && block_count2 != 0)
+		uint8_t inputBuffer[10] = { 0 };
+		std::vector<int16_t> outputBuffer1;
+		outputBuffer1.reserve(L_FRAME * 1000);
+		std::vector<int16_t> outputBuffer2;
+		outputBuffer2.reserve(L_FRAME * 1000);
+
+		//create the decoder 
+		bcg729DecoderChannelContextStruct* Decoder = NULL;
+		Decoder = initBcg729DecoderChannel();    //initialization of the decoder   
+
+		int framesize = 0;
+		uint32_t decodesize = 0;
+		if ((pcmBuffer1.size() - decodesize) < 8){
+			framesize = 2;
+		}
+		else{
+			framesize = 10;
+		}
+
+		while (decodesize < pcmBuffer1.size())
 		{
+			memcpy(inputBuffer, pcmBuffer1.data() + decodesize, framesize);
+			decodesize += framesize;
+			if ((pcmBuffer1.size() - decodesize) < 8){
+				framesize = 2;
+			}
+			else{
+				framesize = 10;
+			}
 
-			uint8_t inputBuffer1[10] = { 0 };
-			int16_t outputBuffer1[L_FRAME] = { 0 };
 
-			int framesNbr1 = 0;
-
-
-			pcmfile1 = fopen(strpath1, "wb");
-			if (pcmfile1 == NULL)
+			uint8_t frameErasureFlag1 = 0;
+			if ((uint8_t)inputBuffer[0] == 0) //frame has been erased
 			{
-				return -1;
+				frameErasureFlag1 = 1;
 			}
 
-			//create the decoder 
-			bcg729DecoderChannelContextStruct* Decoder1 = NULL;
-			Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
-
-			int framesize1 = 0;
-			int decodesize1 = 0;
-			if ((payloadlen1 - decodesize1) < 8)
-			{
-				framesize1 = 2;
-			}
-			else
-			{
-				framesize1 = 10;
-			}
-
-			while (memcpy(inputBuffer1, pcmBuffer1 + decodesize1, framesize1))
-			{
-
-				framesNbr1++;
-				decodesize1 += framesize1;
-				if ((payloadlen1 - decodesize1) < 8)
-				{
-					framesize1 = 2;
-				}
-				else
-				{
-					framesize1 = 10;
-				}
-
-
-				uint8_t frameErasureFlag1 = 0;
-				if ((uint8_t)inputBuffer1[0] == 0) //frame has been erased
-				{
-					frameErasureFlag1 = 1;
-				}
-
-				bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
-
-				fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
-
-				if (decodesize1 >= payloadlen1)
-				{
-					break;
-				}
-
-			}
-
-
-			//release decoder
-			closeBcg729DecoderChannel(Decoder1);
-
-
-			fclose(pcmfile1);
-			delete[] pcmBuffer1;
-
-			uint8_t inputBuffer2[10] = { 0 };
-			int16_t outputBuffer2[L_FRAME] = { 0 };
-
-			int framesNbr2 = 0;
-
-
-			pcmfile2 = fopen(strpath2, "wb");
-			if (pcmfile2 == NULL)
-			{
-				return -1;
-			}
-
-			/*create the decoder */
-			bcg729DecoderChannelContextStruct* Decoder2 = NULL;
-			Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
-
-			int framesize2 = 0;
-			int decodesize2 = 0;
-			if ((payloadlen2 - decodesize2) < 8)
-			{
-				framesize2 = 2;
-			}
-			else
-			{
-				framesize2 = 10;
-			}
-
-			while (memcpy(inputBuffer2, pcmBuffer2 + decodesize2, framesize2))
-			{ /* input buffer contains the parameters and in [15] the frame erasure flag */
-
-				framesNbr2++;
-				decodesize2 += framesize2;
-				if ((payloadlen2 - decodesize2) < 8)
-				{
-					framesize2 = 2;
-				}
-				else
-				{
-					framesize2 = 10;
-				}
-
-				uint8_t frameErasureFlag2 = 0;
-				if ((uint8_t)inputBuffer2[0] == 0) //frame has been erased
-				{
-					frameErasureFlag2 = 1;
-				}
-
-				bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
-
-
-				/* write the output to the output files (only on first loop of perf measurement)*/
-				fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
-
-
-				if (decodesize2 >= payloadlen2)
-				{
-					break;
-				}
-
-			}
-			/*release decoder*/
-			closeBcg729DecoderChannel(Decoder2);
-
-			fclose(pcmfile2);
-			delete[] pcmBuffer2;
-
-
-			/*change the two direction pcm file to the wav file*/
-			pcmfile1 = fopen(strpath1, "rb");
-			if (pcmfile1 == NULL)
-			{
-				return -1;
-			}
-			fseek(pcmfile1, 0, SEEK_END);
-			const long pcmfileout1_len = ftell(pcmfile1);
-			fseek(pcmfile1, 0, SEEK_SET);
-			char* tempBuffer1 = (char*)malloc(pcmfileout1_len);    //set buffer  the same with the file
-			fread((void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
-			fclose(pcmfile1);
-			pcm2wav(strpath1, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
-
-			pcmfile2 = fopen(strpath2, "rb");
-			if (pcmfile2 == NULL)
-			{
-				return -1;
-			}
-			fseek(pcmfile2, 0, SEEK_END);
-			const long pcmfileout2_len = ftell(pcmfile2);
-			fseek(pcmfile2, 0, SEEK_SET);
-			char* tempBuffer2 = (char*)malloc(pcmfileout2_len);    //set buffer  the same with the file
-			fread((void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
-			fclose(pcmfile2);
-			pcm2wav(strpath2, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
-
-			//add the two direction pcm file together,change it to the wav file
-			int pcmfileoutall_len = 0;
-			if (pcmfileout1_len <= pcmfileout2_len)
-			{
-
-				for (int i = 0; i < (pcmfileout2_len - pcmfileout1_len); i++)
-				{
-					tempBuffer2[i] = tempBuffer2[i];
-				}
-
-				for (int i = (pcmfileout2_len - pcmfileout1_len); i <= pcmfileout2_len - 1; i++)
-				{
-					tempBuffer2[i] = tempBuffer2[i] + tempBuffer1[i - (pcmfileout2_len - pcmfileout1_len)];
-				}
-
-
-				pcmfileoutall_len = pcmfileout2_len;
-				pcm2wav(strpathall, tempBuffer2, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
-
-			}
-			else if (pcmfileout1_len > pcmfileout2_len)
-			{
-				for (int i = 0; i < (pcmfileout1_len - pcmfileout2_len); i++)
-				{
-					tempBuffer1[i] = tempBuffer1[i];
-				}
-
-				for (int i = (pcmfileout1_len - pcmfileout2_len); i <= pcmfileout1_len - 1; i++)
-				{
-					tempBuffer1[i] = tempBuffer1[i] + tempBuffer2[i - (pcmfileout1_len - pcmfileout2_len)];
-				}
-				pcmfileoutall_len = pcmfileout1_len;
-				pcm2wav(strpathall, tempBuffer1, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
-			}
-
-			if (tempBuffer1 != NULL)
-			{
-				free(tempBuffer1);
-
-				tempBuffer1 = NULL;
-			}
-
-			if (tempBuffer2 != NULL)
-			{
-				free(tempBuffer2);
-				tempBuffer2 = NULL;
-			}
+			int16_t tempoutpuBuffer[L_FRAME] = { 0 };
+			bcg729Decoder(Decoder, inputBuffer, frameErasureFlag1, tempoutpuBuffer);
+			outputBuffer1.insert(outputBuffer1.end(), tempoutpuBuffer, tempoutpuBuffer+L_FRAME);
 
 		}
 
+		decodesize = 0;
+		framesize = 0;
+		if ((pcmBuffer2.size() - decodesize) < 8){
+			framesize = 2;
+		}
+		else{
+			framesize = 10;
+		}
 
-		else if (block_count1 != 0 && block_count2 == 0)
+		while (decodesize < pcmBuffer2.size())
 		{
-			delete[] pcmBuffer2;
-			uint8_t inputBuffer1[10] = { 0 };
-			int16_t outputBuffer1[L_FRAME] = { 0 };
-
-			int framesNbr1 = 0;
-
-			pcmfile1 = fopen(strpath1, "wb");
-			if (pcmfile1 == NULL)
-			{
-				return -1;
+			memcpy(inputBuffer, pcmBuffer2.data() + decodesize, framesize);
+			decodesize += framesize;
+			if ((pcmBuffer2.size() - decodesize) < 8) {
+				framesize = 2;
+			}
+			else {
+				framesize = 10;
 			}
 
-			//create the decoder 
-			bcg729DecoderChannelContextStruct* Decoder1 = NULL;
-			Decoder1 = initBcg729DecoderChannel();    //initialization of the decoder   
 
-			int framesize1 = 0;
-			int decodesize1 = 0;
-			if ((payloadlen1 - decodesize1) < 8)
+			uint8_t frameErasureFlag1 = 0;
+			if ((uint8_t)inputBuffer[0] == 0) //frame has been erased
 			{
-				framesize1 = 2;
-			}
-			else
-			{
-				framesize1 = 10;
+				frameErasureFlag1 = 1;
 			}
 
-			while (memcpy(inputBuffer1, pcmBuffer1 + decodesize1, framesize1))
-			{
-
-				framesNbr1++;
-				decodesize1 += framesize1;
-				if ((payloadlen1 - decodesize1) < 8)
-				{
-					framesize1 = 2;
-				}
-				else
-				{
-					framesize1 = 10;
-				}
-
-				uint8_t frameErasureFlag1 = 0;
-				if ((uint8_t)inputBuffer1[0] == 0) //frame has been erased
-				{
-					frameErasureFlag1 = 1;
-				}
-
-				bcg729Decoder(Decoder1, inputBuffer1, frameErasureFlag1, outputBuffer1);
-
-				// write the output to the output files (only on first loop of per measurement)	
-				fwrite(outputBuffer1, sizeof(int16_t), L_FRAME, pcmfile1);
-
-				if (decodesize1 >= payloadlen1)
-				{
-					break;
-				}
-
-			}
-
-			//release decoder
-			closeBcg729DecoderChannel(Decoder1);
-
-			fclose(pcmfile1);
-			delete[] pcmBuffer1;
-
-			/*change the two direction pcm file to the wav file*/
-			pcmfile1 = fopen(strpath1, "rb");
-			if (pcmfile1 == NULL)
-			{
-				return -1;
-			}
-			fseek(pcmfile1, 0, SEEK_END);
-			const long pcmfileout1_len = ftell(pcmfile1);
-			fseek(pcmfile1, 0, SEEK_SET);
-			char* tempBuffer1 = (char*)malloc(pcmfileout1_len);    //set buffer  the same with the file
-			fread((void*)tempBuffer1, 1, pcmfileout1_len, pcmfile1);   //read FILE to buffer
-			fclose(pcmfile1);
-			pcm2wav(strpath1, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
-
-			pcm2wav(strpathall, tempBuffer1, pcmfileout1_len, 1, 8000, 16000, 2, 16);
-
+			int16_t tempoutpuBuffer[L_FRAME] = { 0 };
+			bcg729Decoder(Decoder, inputBuffer, frameErasureFlag1, tempoutpuBuffer);
+			outputBuffer2.insert(outputBuffer2.end(), tempoutpuBuffer, tempoutpuBuffer + L_FRAME);
 
 		}
 
-		else if (block_count1 == 0 && block_count2 != 0)
+		//release decoder
+		closeBcg729DecoderChannel(Decoder);
+
+		pcm2wav(strpath1.c_str(), (unsigned char *)outputBuffer1.data(), outputBuffer1.size() * 2, 1, 8000, 16000, 2, 16);
+
+		pcm2wav(strpath2.c_str(), (unsigned char *)outputBuffer2.data(), outputBuffer2.size() * 2, 1, 8000, 16000, 2, 16);
+
+		//add the two direction pcm file together,change it to the wav file
+		/*int pcmfileoutall_len = 0;
+		if (pcmfileout1_len <= pcmfileout2_len)
 		{
-			delete[] pcmBuffer1;
 
-			uint8_t inputBuffer2[10] = { 0 };
-			int16_t outputBuffer2[L_FRAME] = { 0 };
-
-			int framesNbr2 = 0;
-
-			pcmfile2 = fopen(strpath2, "wb");
-			if (pcmfile2 == NULL)
+			for (int i = 0; i < (pcmfileout2_len - pcmfileout1_len); i++)
 			{
-				return -1;
+				tempBuffer2[i] = tempBuffer2[i];
 			}
 
-			/*create the decoder */
-			bcg729DecoderChannelContextStruct* Decoder2 = NULL;
-			Decoder2 = initBcg729DecoderChannel();    //initialization of the decoder
-
-			int framesize2 = 0;
-			int decodesize2 = 0;
-			if ((payloadlen2 - decodesize2) < 8)
+			for (int i = (pcmfileout2_len - pcmfileout1_len); i <= pcmfileout2_len - 1; i++)
 			{
-				framesize2 = 2;
-			}
-			else
-			{
-				framesize2 = 10;
+				tempBuffer2[i] = tempBuffer2[i] + tempBuffer1[i - (pcmfileout2_len - pcmfileout1_len)];
 			}
 
-			while (memcpy(inputBuffer2, pcmBuffer2 + decodesize2, framesize2))
-			{ /* input buffer contains the parameters and in [15] the frame erasure flag */
 
-				framesNbr2++;
-				decodesize2 += framesize2;
-				if ((payloadlen2 - decodesize2) < 8)
-				{
-					framesize2 = 2;
-				}
-				else
-				{
-					framesize2 = 10;
-				}
-
-				uint8_t frameErasureFlag2 = 0;
-				if ((uint8_t)inputBuffer2[0] == 0) //frame has been erased
-				{
-					frameErasureFlag2 = 1;
-				}
-
-				bcg729Decoder(Decoder2, inputBuffer2, frameErasureFlag2, outputBuffer2);
-
-
-				/* write the output to the output files (only on first loop of perf measurement)*/
-				fwrite(outputBuffer2, sizeof(int16_t), L_FRAME, pcmfile2);
-				if (decodesize2 >= payloadlen2)
-				{
-					break;
-				}
-
-			}
-			/*release decoder*/
-			closeBcg729DecoderChannel(Decoder2);
-
-			fclose(pcmfile2);
-			delete[] pcmBuffer2;
-
-			pcmfile2 = fopen(strpath2, "rb");
-			if (pcmfile2 == NULL)
-			{
-				return -1;
-			}
-			fseek(pcmfile2, 0, SEEK_END);
-			const long pcmfileout2_len = ftell(pcmfile2);
-			fseek(pcmfile2, 0, SEEK_SET);
-			char* tempBuffer2 = (char*)malloc(pcmfileout2_len);    //set buffer  the same with the file
-			fread((void*)tempBuffer2, 1, pcmfileout2_len, pcmfile2);   //read FILE to buffer
-			fclose(pcmfile2);
-			pcm2wav(strpath2, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
-
-			pcm2wav(strpathall, tempBuffer2, pcmfileout2_len, 1, 8000, 16000, 2, 16);
+			pcmfileoutall_len = pcmfileout2_len;
+			pcm2wav(strpathall, tempBuffer2, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
 
 		}
-		remove(strpath1);
-		remove(strpath2);
+		else if (pcmfileout1_len > pcmfileout2_len)
+		{
+			for (int i = 0; i < (pcmfileout1_len - pcmfileout2_len); i++)
+			{
+				tempBuffer1[i] = tempBuffer1[i];
+			}
+
+			for (int i = (pcmfileout1_len - pcmfileout2_len); i <= pcmfileout1_len - 1; i++)
+			{
+				tempBuffer1[i] = tempBuffer1[i] + tempBuffer2[i - (pcmfileout1_len - pcmfileout2_len)];
+			}
+			pcmfileoutall_len = pcmfileout1_len;
+			pcm2wav(strpathall, tempBuffer1, pcmfileoutall_len, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+		}
+		*/
+
+		//remove(strpath1);
+		//remove(strpath2);
 
 	}
-
+#pragma endregion G729
      return 0;
 }
  

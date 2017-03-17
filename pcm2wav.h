@@ -19,7 +19,7 @@ typedef unsigned short int uint16_t;
 typedef unsigned int uint32_t;
 
 
-void pcm2wav(char *file, char *buffer, int32_t size, int16_t channel, int32_t smplrate, int32_t bytescnd,int16_t align, int16_t nbits);
+void pcm2wav(const char *file, const unsigned char *buffer, int32_t size, int16_t channel, int32_t smplrate, int32_t bytescnd,int16_t align, int16_t nbits);
 void write_i16_le (void *ptr, int16_t val);
 void write_i32_le (void *ptr, int32_t val);
 int16_t peek_i16_le (const void *ptr);
