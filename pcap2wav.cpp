@@ -255,8 +255,6 @@ int main(int argc, char* argv[])
 	pcmBuffer1.reserve(iFileLen);
 	std::vector<unsigned char> pcmBuffer2;
 	pcmBuffer2.reserve(iFileLen);
-	std::vector<unsigned char> pcmBufferAll;
-	pcmBufferAll.reserve(iFileLen);
 
 	//to keep the payload data
 	uint8_t  payload_type = 1;
@@ -349,16 +347,17 @@ int main(int argc, char* argv[])
 		//delete the RTP header based on the size of the RTP header
 		struct rtphdr* rtp_header = (rtphdr*)((uint8_t*)udp_header + sizeof(struct udphdr));
 
-		payload_type = rtp_header->pt;    //based on the payload type to decide use which wav head
 
 		//////////////////////////take out the payload data//////////////////
 		uint8_t* rtp_data = (uint8_t*)rtp_header + sizeof(struct rtphdr);
 
-		if (/*payload_type != 0 && payload_type != 8 && */payload_type != 18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
+		if (/*rtp_header->pt != 0 && rtp_header->pt != 8 && */rtp_header->pt != 18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
 		{
 			iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;
 			continue;
 		}
+
+		payload_type = rtp_header->pt;    //based on the payload type to decide use which wav head
 
 		if (buffer1_srcaddr[0] == 0) {
 			memcpy(buffer1_srcaddr,srcaddr,4);
@@ -374,14 +373,6 @@ int main(int argc, char* argv[])
 			uint32_t pos = pcmBuffer1.size();
 			pcmBuffer1.resize(pcmBuffer1.size() + datasize, 0);
 			memcpy(pcmBuffer1.data() + pos, rtp_data, datasize);
-
-			if (pcmBufferAll.size() < pcmBuffer1.size()) {
-				pcmBufferAll.resize(pcmBuffer1.size(), 0);
-			}
-			for (int i =0 ;i<datasize;i++){
-				pcmBufferAll.at(pcmBufferAll.size() - datasize + i) += pcmBuffer1.at(pos + i);
-			}
-			
 		}
 		if (compareIP(srcaddr, buffer2_srcaddr, 4) && compareIP(desaddr, buffer2_desaddr, 4))
 		{
@@ -389,13 +380,6 @@ int main(int argc, char* argv[])
 			uint32_t pos = pcmBuffer2.size();
 			pcmBuffer2.resize(pcmBuffer2.size() + datasize, 0);
 			memcpy(pcmBuffer2.data() + pos, rtp_data, datasize);
-
-			if (pcmBufferAll.size() < pcmBuffer2.size()) {
-				pcmBufferAll.resize(pcmBuffer2.size(), 0);
-			}
-			for (int i = 0; i < datasize; i++) {
-				pcmBufferAll.at(pcmBufferAll.size() - datasize + i) += pcmBuffer2.at(pos + i);
-			}
 		}
 
 		//set the begin position of the next data packet
@@ -448,7 +432,7 @@ int main(int argc, char* argv[])
 	{
 		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
 		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
-		std::vector<short>pRawDataAll(pcmBufferAll.size(), 0);
+		std::vector<short>pRawDataAll;
 
 		if (pcmBuffer1.size() != 0) {
 			int size1 = G711_Decode_ulaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
@@ -460,9 +444,27 @@ int main(int argc, char* argv[])
 			pcm2wav(strpath2.c_str(), (unsigned char*)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
 		}
 
-		if (pcmBufferAll.size() != 0){
-			int sizeall = G711_Decode_ulaw(pRawDataAll.data(), pcmBufferAll.data(), pcmBufferAll.size());
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), sizeall, 1, 8000, 16000, 2, 16);
+		if (pRawData1.size() < pRawData2.size())
+		{
+			pRawDataAll = pRawData2;
+
+			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+			{
+				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size()*2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+
+		}
+		else if (pRawData1.size() >= pRawData2.size())
+		{
+			pRawDataAll = pRawData1;
+			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+			{
+				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size()*2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
 		}
 
      }
@@ -473,7 +475,7 @@ int main(int argc, char* argv[])
 	{
 		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
 		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
-		std::vector<short>pRawDataAll(pcmBufferAll.size(), 0);
+		std::vector<short>pRawDataAll;
 
 		if (pcmBuffer1.size() != 0) {
 			int size1 = G711_Decode_alaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
@@ -485,9 +487,27 @@ int main(int argc, char* argv[])
 			pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
 		}
 
-		if (pcmBufferAll.size() != 0) {
-			int sizeall = G711_Decode_alaw(pRawDataAll.data(), pcmBufferAll.data(), pcmBufferAll.size());
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), sizeall, 1, 8000, 16000, 2, 16);
+		if (pRawData1.size() < pRawData2.size())
+		{
+			pRawDataAll = pRawData2;
+
+			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+			{
+				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+
+		}
+		else if (pRawData1.size() >= pRawData2.size())
+		{
+			pRawDataAll = pRawData1;
+			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+			{
+				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
 		}
 
 	 }
@@ -497,21 +517,42 @@ int main(int argc, char* argv[])
 	/* codecG729a*/
 	else if (payload_type == 18)   //codecG729a
 	{
-		std::vector<int16_t> outputBuffer1;
-		outputBuffer1.reserve(L_FRAME * 1000);
-		std::vector<int16_t> outputBuffer2;
-		outputBuffer2.reserve(L_FRAME * 1000);
-		std::vector<int16_t> outputBufferAll;
-		outputBufferAll.reserve(L_FRAME * 1000);
+		std::vector<int16_t> pRawData1;
+		pRawData1.reserve(L_FRAME * 1000);
+		std::vector<int16_t> pRawData2;
+		pRawData2.reserve(L_FRAME * 1000);
+		std::vector<int16_t> pRawDataAll;
+		pRawDataAll.reserve(L_FRAME * 1000);
 
-		decodeG729(outputBuffer1, pcmBuffer1);
-		decodeG729(outputBuffer2, pcmBuffer2);
-		decodeG729(outputBufferAll, pcmBufferAll);
+		decodeG729(pRawData1, pcmBuffer1);
+		decodeG729(pRawData2, pcmBuffer2);
 
-		pcm2wav(strpath1.c_str(), (unsigned char *)outputBuffer1.data(), outputBuffer1.size() * 2, 1, 8000, 16000, 2, 16);
-		pcm2wav(strpath2.c_str(), (unsigned char *)outputBuffer2.data(), outputBuffer2.size() * 2, 1, 8000, 16000, 2, 16);
-		pcm2wav(strpathall.c_str(), (unsigned char *)outputBufferAll.data(), outputBufferAll.size() * 2, 1, 8000, 16000, 2, 16);
+		pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), pRawData1.size() * 2, 1, 8000, 16000, 2, 16);
+		pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), pRawData2.size() * 2, 1, 8000, 16000, 2, 16);
+		
+		if (pRawData1.size() < pRawData2.size())
+		{
+			pRawDataAll = pRawData2;
 
+			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+			{
+				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+
+		}
+		else if (pRawData1.size() >= pRawData2.size())
+		{
+			pRawDataAll = pRawData1;
+			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+			{
+				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+			}
+
+			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+		}
+		
 	}
 #pragma endregion G729
      return 0;
