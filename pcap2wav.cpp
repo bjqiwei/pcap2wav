@@ -159,7 +159,7 @@ int32_t decodeG729(std::vector<int16_t> & dest, const std::vector<unsigned char>
 
 int main(int argc, char* argv[])
 {
-	if (argc != 3) {
+	if (argc < 3) {
 		printf("please import the correct source file and destination path!!!\n");
 		return -1;
 	}
@@ -182,6 +182,10 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	int playtype = 0;
+	if (argc >3){
+		playtype = stoi(argv[3]);
+	}
 
 	std::string strpath = argv[1];
 
@@ -351,7 +355,7 @@ int main(int argc, char* argv[])
 		//////////////////////////take out the payload data//////////////////
 		uint8_t* rtp_data = (uint8_t*)rtp_header + sizeof(struct rtphdr);
 
-		if (/*rtp_header->pt != 0 && rtp_header->pt != 8 && */rtp_header->pt != 18)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
+		if (rtp_header->pt != playtype)     //remove the situation of that the payload_type is 101: the protol is RTP EVENT
 		{
 			iIndex = iIndex + sizeof(struct __pkthdr) + data->iPLength;
 			continue;
