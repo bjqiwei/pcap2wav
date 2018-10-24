@@ -9,11 +9,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>$(ProjectDir)..\asr2.pcap $(ProjectDir)..\</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>$(ProjectDir)..\test1.pcap $(ProjectDir)..\ 18</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>$(ProjectDir)..\asr2.pcap $(ProjectDir)..\</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>$(ProjectDir)..\test1.pcap $(ProjectDir)..\ 18</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

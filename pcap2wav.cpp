@@ -197,7 +197,7 @@ int main(int argc, char* argv[])
 	char split = '/';
 #endif
 	strfilename = strpath.substr(strpath.rfind(split) + 1);
-	strfilename = strfilename.substr(0, strfilename.length() - 5);
+	strfilename = strfilename.substr(0, strfilename.rfind("."));
 
 	FILE* pFile = fopen(strpath.c_str(), "rb");
 	if (pFile == NULL) {
@@ -430,45 +430,25 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+	std::vector<int16_t>pRawData1;
+	std::vector<int16_t>pRawData2;
+	std::vector<int16_t>pRawDataAll;
+
 #pragma  region PCMU
 	/* codec G711:pcmu*/
 	if (payload_type == 0)      //codec G711:pcmu // add G711 decode
 	{
-		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
-		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
-		std::vector<short>pRawDataAll;
+		int pos1 = pRawData1.size();
+		int pos2 = pRawData2.size();
+		pRawData1.resize(pos1 + pcmBuffer1.size(), 0);
+		pRawData2.resize(pos2 + pcmBuffer2.size(), 0);
 
 		if (pcmBuffer1.size() != 0) {
-			int size1 = G711_Decode_ulaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
-			pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);
+			int size1 = G711_Decode_ulaw(pRawData1.data() + pos1, pcmBuffer1.data(), pcmBuffer1.size());
 		}
 
 		if (pcmBuffer2.size() != 0) {
-			int size2 = G711_Decode_ulaw(pRawData2.data(), pcmBuffer2.data(),pcmBuffer2.size());
-			pcm2wav(strpath2.c_str(), (unsigned char*)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
-		}
-
-		if (pRawData1.size() < pRawData2.size())
-		{
-			pRawDataAll = pRawData2;
-
-			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
-			{
-				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size()*2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
-
-		}
-		else if (pRawData1.size() >= pRawData2.size())
-		{
-			pRawDataAll = pRawData1;
-			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
-			{
-				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size()*2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+			int size2 = G711_Decode_ulaw(pRawData2.data() + pos2, pcmBuffer2.data(),pcmBuffer2.size());
 		}
 
      }
@@ -477,41 +457,17 @@ int main(int argc, char* argv[])
 	/*  codec G711:pcma*/
 	else if (payload_type == 8)     //codec G711:pcma
 	{
-		std::vector<short>pRawData1(pcmBuffer1.size(), 0);
-		std::vector<short>pRawData2(pcmBuffer2.size(), 0);
-		std::vector<short>pRawDataAll;
+		int pos1 = pRawData1.size();
+		int pos2 = pRawData2.size();
+		pRawData1.resize(pos1 + pcmBuffer1.size(), 0);
+		pRawData2.resize(pos2 + pcmBuffer2.size(), 0);
 
 		if (pcmBuffer1.size() != 0) {
-			int size1 = G711_Decode_alaw(pRawData1.data(), pcmBuffer1.data(), pcmBuffer1.size());
-			pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), size1, 1, 8000, 16000, 2, 16);
+			int size1 = G711_Decode_alaw(pRawData1.data() + pos1, pcmBuffer1.data(), pcmBuffer1.size());
 		}
 
 		if (pcmBuffer2.size() != 0) {
-			int size2 = G711_Decode_alaw(pRawData2.data(), pcmBuffer2.data(), pcmBuffer2.size());
-			pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), size2, 1, 8000, 16000, 2, 16);
-		}
-
-		if (pRawData1.size() < pRawData2.size())
-		{
-			pRawDataAll = pRawData2;
-
-			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
-			{
-				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
-
-		}
-		else if (pRawData1.size() >= pRawData2.size())
-		{
-			pRawDataAll = pRawData1;
-			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
-			{
-				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+			int size2 = G711_Decode_alaw(pRawData2.data() + pos2, pcmBuffer2.data(), pcmBuffer2.size());
 		}
 
 	 }
@@ -521,44 +477,44 @@ int main(int argc, char* argv[])
 	/* codecG729a*/
 	else if (payload_type == 18)   //codecG729a
 	{
-		std::vector<int16_t> pRawData1;
-		pRawData1.reserve(L_FRAME * 1000);
-		std::vector<int16_t> pRawData2;
-		pRawData2.reserve(L_FRAME * 1000);
-		std::vector<int16_t> pRawDataAll;
-		pRawDataAll.reserve(L_FRAME * 1000);
-
-		decodeG729(pRawData1, pcmBuffer1);
-		decodeG729(pRawData2, pcmBuffer2);
-
-		pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), pRawData1.size() * 2, 1, 8000, 16000, 2, 16);
-		pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), pRawData2.size() * 2, 1, 8000, 16000, 2, 16);
-		
-		if (pRawData1.size() < pRawData2.size())
-		{
-			pRawDataAll = pRawData2;
-
-			for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
-			{
-				pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
-
+		if (pcmBuffer1.size() != 0){
+			decodeG729(pRawData1, pcmBuffer1);
 		}
-		else if (pRawData1.size() >= pRawData2.size())
-		{
-			pRawDataAll = pRawData1;
-			for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
-			{
-				pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
-			}
-
-			pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+		if (pcmBuffer2.size() != 0) {
+			decodeG729(pRawData2, pcmBuffer2);
 		}
-		
+
 	}
 #pragma endregion G729
+
+	if(pRawData1.size() != 0)
+		pcm2wav(strpath1.c_str(), (unsigned char *)pRawData1.data(), pRawData1.size() * 2, 1, 8000, 16000, 2, 16);
+	if(pRawData2.size() != 0)
+		pcm2wav(strpath2.c_str(), (unsigned char *)pRawData2.data(), pRawData2.size() * 2, 1, 8000, 16000, 2, 16);
+
+	if (pRawData1.size() < pRawData2.size())
+	{
+		pRawDataAll = pRawData2;
+
+		for (uint32_t i = (pRawData2.size() - pRawData1.size()); i < pRawData2.size(); i++)
+		{
+			pRawDataAll[i] = pRawData2[i] + pRawData1[i - (pRawData2.size() - pRawData1.size())];
+		}
+
+		
+	}
+	else if (pRawData1.size() >= pRawData2.size())
+	{
+		pRawDataAll = pRawData1;
+		for (uint32_t i = (pRawData1.size() - pRawData2.size()); i < pRawData1.size(); i++)
+		{
+			pRawDataAll[i] = pRawData1[i] + pRawData2[i - (pRawData1.size() - pRawData2.size())];
+		}
+
+	}
+	if(pRawDataAll.size() != 0)
+		pcm2wav(strpathall.c_str(), (unsigned char *)pRawDataAll.data(), pRawDataAll.size() * 2, 1, 8000, 16000, 2, 16);   //different parameter affact the audio
+
      return 0;
 }
  
